@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Happy Birthday Zari</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; background:#111; }
+  canvas { display:block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+/* ======================= 音乐 - 完整的单音生日快乐 ======================= */
+let candlesLit=false, audioStarted=false;
+let ctxAudio; 
+
+function playBirthdaySong(){
+  if(audioStarted) return;
+  audioStarted=true;
+  ctxAudio = new (window.AudioContext||window.webkitAudioContext)();
+  
+  const melody=[
+    [262,0.4],[262,0.4],[294,0.8],[262,0.8],[349,0.8],[330,1.6],
+    [262,0.4],[262,0.4],[294,0.8],[262,0.8],[392,0.8],[349,1.6],
+    [262,0.4],[262,0.4],[523,0.8],[440,0.8],[349,0.8],[330,0.8],[294,1.6],
+    [466,0.4],[466,0.4],[440,0.8],[349,0.8],[392,0.8],[349,1.6]
+  ];
+  
+  function playPart(part, type='sine', gainVal=0.15, delay=0){
+    let t = ctxAudio.currentTime + delay;
+    for(let [f,d] of part){
+      const osc = ctxAudio.createOscillator();
+      const g = ctxAudio.createGain();
+      osc.type = type; osc.frequency.value = f;
+      g.gain.setValueAtTime(gainVal, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d * 0.95); 
+      osc.connect(g).connect(ctxAudio.destination);
+      osc.start(t); osc.stop(t+d);
+      t += d;
+    }
+  }
+
+  function playAllParts() {
+    if (ctxAudio.state === 'suspended') {
+      ctxAudio.resume();
+    }
+    playPart(melody,'sine',0.2,0);
+  }
+
+  playAllParts();
+  setInterval(playAllParts, 20200); 
+}
+
+/* ======================= Canvas 初始化 ======================= */
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+resize(); window.onresize=resize;
+
+/* ======================= 生日蛋糕 ======================= */
+function drawCake(){
+  const cx=canvas.width/2;
+  const cy=canvas.height*0.55;
+  ctx.save();
+  ctx.translate(cx,cy);
+
+  // 盘子
+  ctx.fillStyle="#ddd";
+  ctx.beginPath();
+  ctx.ellipse(0,70,150,35,0,0,Math.PI*2); ctx.fill();
+
+  // 下层蛋糕
+  ctx.fillStyle="#ffe4d6";
+  ctx.beginPath();
+  ctx.roundRect(-120,-40,240,80,25); ctx.fill();
+
+  // 奶油滴落
+  ctx.fillStyle="#ffcad4";
+  for(let i=-90;i<=90;i+=36){ctx.beginPath();ctx.ellipse(i,40,22,14,0,0,Math.PI*2);ctx.fill();}
+
+  // 上层蛋糕
+  ctx.fillStyle="#fff2e8";
+  ctx.beginPath();
+  ctx.roundRect(-90,-85,180,60,20); ctx.fill();
+
+  // --- 蜡烛：调整绘制顺序和位置 ---
+  // 先画蜡烛 (y=-150到y=-90)
+  ctx.fillStyle="white";
+  ctx.fillRect(-5, -150, 10, 60); 
+
+  // 再画草莓 (y=-95)，使其遮挡蜡烛底部
+  ctx.fillStyle="#ff5a7a";
+  [-70,-35,0,35,70].forEach(i=>{ctx.beginPath();ctx.ellipse(i,-95,11,12,0,0,Math.PI*2);ctx.fill();});
+  
+  // --- 火焰：优化性能和效果 ---
+  if(candlesLit){
+    ctx.save(); 
+    
+    // 随机闪烁参数
+    let waver = (Math.random() - 0.5) * 1.5; // 左右摆动
+    let flicker = Math.random() * 0.4 + 0.8; // 高度变化 (0.8 to 1.2)
+    
+    // 移动到蜡烛顶部，并应用水平摆动
+    ctx.translate(waver, -155); 
+
+    // 1. 使用单一路径绘制泪滴形
+    ctx.beginPath();
+    ctx.moveTo(0, 0); // 蜡烛芯基座
+    // 使用二次贝塞尔曲线绘制右侧轮廓 (控制点在 y=-15)
+    ctx.quadraticCurveTo(8 * flicker, -15 * flicker, 0, -30 * flicker); 
+    // 绘制火焰尖端到左侧轮廓
+    ctx.quadraticCurveTo(-8 * flicker, -15 * flicker, 0, 0); 
+    ctx.closePath();
+
+    // 2. 创建一个径向渐变，模拟焰心和外焰
+    let grd = ctx.createRadialGradient(0, -10 * flicker, 1, 0, -10 * flicker, 18 * flicker);
+    grd.addColorStop(0, "rgba(255, 255, 180, 1)");   // 亮白色焰心
+    grd.addColorStop(0.5, "rgba(255, 200, 0, 0.8)"); // 黄色主焰
+    grd.addColorStop(1, "rgba(255, 100, 0, 0.1)");   // 柔和的橙色外光
+    
+    ctx.fillStyle = grd;
+    ctx.globalAlpha = 0.9;
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* ======================= 文本 ======================= */
+let tipOpacity=1;
+function drawText(){
+  ctx.fillStyle="white";
+  ctx.font="50px 'Cooper Black', sans-serif"; ctx.textAlign="center";
+  ctx.fillText("Happy Birthday to Zari", canvas.width/2, canvas.height*0.18);
+  if(!candlesLit){
+    ctx.fillStyle=`rgba(255,255,255,${tipOpacity})`;
+    ctx.font="24px 'Times New Roman', serif";
+    ctx.fillText("click to light on candles", canvas.width/2, canvas.height*0.65);
+  }
+}
+
+/* ======================= 点击点亮 ======================= */
+document.body.addEventListener("click",()=>{
+  if(!candlesLit){candlesLit=true; playBirthdaySong();
+    let fade=setInterval(()=>{tipOpacity-=0.03;if(tipOpacity<=0)clearInterval(fade);},50);
+  }
+});
+
+/* ======================= Lorenz 风轨迹 (颜色已修改) ======================= */
+let tLorenz=0;
+// 修改：略微增加饱和度的粉红色和粉紫色，并提高透明度到 0.5
+const lorenzColors=[
+  "rgba(255, 190, 210, 0.5)", // 略增饱和度的粉红色
+  "rgba(210, 180, 255, 0.5)"  // 略增饱和度的粉紫色
+];
+function drawLorenz(){
+  ctx.save(); ctx.translate(canvas.width/2,canvas.height/2);
+  let scale=3; ctx.scale(scale,scale);
+  ctx.globalCompositeOperation="lighter";
+
+  let a=(y,d=Math.hypot(k=(y<9?4+Math.sin(y**8)*9:y/4+Math.cos(y))*Math.cos(i),e=y/6-13)+Math.cos(i/1199)/2)=>
+  {
+    let q=y*k/d*(2+Math.sin(d*2+y-tLorenz*16))+79;
+    let c=d/6-tLorenz+(i&5);
+    let px=q*Math.cos(c);
+    let py=q*d/9*Math.sin(c+(i%2)*7);
+    ctx.fillStyle=lorenzColors[i%2]; 
+    ctx.fillRect(px,py,0.6,0.6);
+  }
+
+  for(i=20000;i--;) a(i/980);
+  tLorenz+=Math.PI/480;
+  ctx.restore();
+}
+
+/* ======================= 主循环 ======================= */
+function animate(){
+  ctx.fillStyle="rgba(10,10,15,0.2)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  drawLorenz();
+  drawCake();
+  drawText();
+
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
